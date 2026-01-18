@@ -1,281 +1,223 @@
-# ESC/POS Printer API
+# ESC/POS Printer API - .NET Edition
 
-API REST para enviar byte arrays para impressoras térmicas Perto usando Node.js + Express.
+API desenvolvida em .NET com Minimal API e Windows Forms para impressão em impressoras ESC/POS.
 
-## 🚀 Características
+## 🏗️ Arquitetura
 
-- ✅ Listagem de impressoras USB conectadas
-- ✅ Conexão com impressora específica
-- ✅ Impressão de byte arrays (ESC/POS)
-- ✅ Impressão de texto simples (para testes)
-- ✅ Suporte a CORS
-- ✅ Tratamento de erros robusto
+O projeto é dividido em 3 componentes:
+
+- **EscPosPrinterApi.Core**: Biblioteca com modelos e serviços compartilhados
+- **EscPosPrinterApi.Api**: API Minimal .NET que recebe requisições HTTP
+- **EscPosPrinterApi.UI**: Interface Windows Forms para seleção de impressora
+
+## 🚀 Como Funciona
+
+1. A API recebe uma requisição POST com um byte array (dados ESC/POS)
+2. Os dados são salvos em um arquivo temporário
+3. A API inicia o Windows Forms passando o caminho do arquivo
+4. O usuário seleciona a impressora desejada na interface gráfica
+5. Ao confirmar, os dados são enviados para a impressora
+6. O resultado é retornado para a API
+7. A API responde ao cliente com o status da impressão
 
 ## 📋 Pré-requisitos
 
-- Node.js >= 16.x
-- NPM ou Yarn
-- Impressora térmica Perto conectada via USB
-- Windows/Linux com drivers USB apropriados
+- .NET 10.0 SDK ou superior
+- Windows (devido ao uso de Windows Forms e API winspool.drv)
+- Impressora ESC/POS instalada no sistema
 
-### Drivers USB (Windows)
+## 🔧 Instalação e Execução
 
-No Windows, pode ser necessário instalar drivers USB. A biblioteca `usb` usa `libusb`. Para Windows:
-
-1. Baixe e instale [Zadig](https://zadig.akeo.ie/)
-2. Execute Zadig e selecione sua impressora
-3. Instale o driver WinUSB
-
-## 🔧 Instalação
+### 1. Compilar os projetos
 
 ```bash
-# Instalar dependências
-npm install
+# Compilar toda a solução
+dotnet build
 
-# Modo desenvolvimento (com hot reload)
-npm run dev
-
-# Modo produção
-npm start
+# Ou compilar individualmente
+dotnet build EscPosPrinterApi.Core/EscPosPrinterApi.Core.csproj
+dotnet build EscPosPrinterApi.UI/EscPosPrinterApi.UI.csproj
+dotnet build EscPosPrinterApi.Api/EscPosPrinterApi.Api.csproj
 ```
+
+### 2. Executar a API
+
+```bash
+cd EscPosPrinterApi.Api
+dotnet run
+```
+
+A API estará disponível em: `http://localhost:3031`
 
 ## 📡 Endpoints da API
 
-### Base URL
-```
-http://localhost:3000
-```
-
-### 1. Health Check
-```http
-GET /health
-```
+### GET /api/printers
+Lista todas as impressoras instaladas no sistema.
 
 **Resposta:**
 ```json
-{
-  "status": "ok",
-  "message": "ESC/POS Printer API is running"
-}
-```
-
-### 2. Listar Impressoras
-```http
-GET /api/printer/list
-```
-
-**Resposta:**
-```json
-{
-  "success": true,
-  "count": 1,
-  "printers": [
-    {
-      "index": 0,
-      "vendorId": 1234,
-      "productId": 5678,
-      "manufacturer": 1,
-      "product": 2
-    }
-  ]
-}
-```
-
-### 3. Conectar à Impressora
-```http
-POST /api/printer/connect
-Content-Type: application/json
-
-{
-  "printerIndex": 0
-}
-```
-
-**Resposta:**
-```json
-{
-  "success": true,
-  "message": "Connected to printer successfully",
-  "printer": {
-    "vendorId": 1234,
-    "productId": 5678
+[
+  {
+    "name": "EPSON TM-T20",
+    "isDefault": true,
+    "status": "Disponível"
   }
-}
+]
 ```
 
-### 4. Imprimir Byte Array
-```http
-POST /api/printer/print
-Content-Type: application/json
+### POST /api/print
+Envia dados para impressão (abre interface gráfica para seleção).
 
+**Requisição (Array de Números):**
+```json
 {
-  "byteArray": [27, 64, 27, 97, 1, 72, 101, 108, 108, 111, 10, 10, 10]
+  "data": [27, 64, 27, 97, 1, ...],
+  "jobName": "Cupom Fiscal"
 }
 ```
+
+**Requisição (Base64):**
+```json
+{
+  "data": "G0BIZWxsbw==",
+  "jobName": "Cupom Fiscal"
+}
+```
+
+**Requisição com Impressora Padrão (sem modal):**
+```json
+{
+  "data": [27, 64, 27, 97, 1, ...],
+  "jobName": "Cupom Fiscal",
+  "defaultPrinter": true
+}
+```
+
+**Nota**: 
+- O campo `data` aceita tanto um array de números quanto uma string Base64.
+- O campo `defaultPrinter` (opcional, padrão: `false`) quando definido como `true`, envia a impressão diretamente para a impressora padrão do sistema sem exibir o modal de seleção.
+
+**Resposta (Sucesso):**
+```json
+{
+  "success": true,
+  "message": "Impressão enviada com sucesso para EPSON TM-T20",
+  "printerName": "EPSON TM-T20",
+  "cancelled": false
+}
+```
+
+**Resposta (Cancelado):**
+```json
+{
+  "success": false,
+  "message": "Operação cancelada pelo usuário",
+  "printerName": null,
+  "cancelled": true
+}
+```
+
+### GET /health
+Verifica se a API está funcionando.
 
 **Resposta:**
 ```json
 {
-  "success": true,
-  "message": "Print job sent successfully",
-  "bytesWritten": 13
+  "status": "healthy",
+  "timestamp": "2026-01-13T14:30:00Z"
 }
 ```
 
-### 5. Imprimir Texto (Teste)
-```http
-POST /api/printer/print-text
-Content-Type: application/json
+## 🧪 Testando a API
 
-{
-  "text": "Teste de impressão"
-}
-```
-
-**Resposta:**
-```json
-{
-  "success": true,
-  "message": "Text printed successfully"
-}
-```
-
-### 6. Desconectar
-```http
-POST /api/printer/disconnect
-```
-
-**Resposta:**
-```json
-{
-  "success": true,
-  "message": "Disconnected from printer"
-}
-```
-
-## 🧪 Exemplos de Uso
-
-### cURL
+### Usando cURL
 
 ```bash
 # Listar impressoras
-curl http://localhost:3000/api/printer/list
+curl http://localhost:3031/api/printers
 
-# Conectar à primeira impressora
-curl -X POST http://localhost:3000/api/printer/connect \
+# Enviar impressão (exemplo com comandos ESC/POS básicos)
+curl -X POST http://localhost:3031/api/print \
   -H "Content-Type: application/json" \
-  -d '{"printerIndex": 0}'
-
-# Imprimir byte array
-curl -X POST http://localhost:3000/api/printer/print \
-  -H "Content-Type: application/json" \
-  -d '{"byteArray": [27, 64, 27, 97, 1, 72, 101, 108, 108, 111, 10, 10, 10]}'
-
-# Imprimir texto de teste
-curl -X POST http://localhost:3000/api/printer/print-text \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Olá, Mundo!"}'
+  -d "{\"data\": [27, 64, 72, 101, 108, 108, 111, 10, 10, 10, 27, 105]}"
 ```
 
-### JavaScript (Fetch)
+### Usando Swagger
 
-```javascript
-// Conectar à impressora
-const connect = async () => {
-  const response = await fetch('http://localhost:3000/api/printer/connect', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ printerIndex: 0 })
-  });
-  return await response.json();
-};
+Acesse `http://localhost:3031/swagger` para testar os endpoints interativamente.
 
-// Imprimir byte array
-const print = async (byteArray) => {
-  const response = await fetch('http://localhost:3000/api/printer/print', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ byteArray })
-  });
-  return await response.json();
-};
+## 📦 Estrutura de Dados ESC/POS
 
-// Exemplo de uso
-await connect();
-await print([27, 64, 27, 97, 1, 72, 101, 108, 108, 111, 10, 10, 10]);
-```
+O byte array deve conter comandos ESC/POS válidos. Exemplos:
 
-## 🔍 Comandos ESC/POS Comuns
-
-Alguns comandos ESC/POS úteis para criar byte arrays:
-
-```javascript
+```csharp
 // Inicializar impressora
-[27, 64]  // ESC @
+byte[] init = { 0x1B, 0x40 };
 
-// Alinhar texto
-[27, 97, 0]  // Esquerda
-[27, 97, 1]  // Centro
-[27, 97, 2]  // Direita
-
-// Tamanho do texto
-[29, 33, 0]   // Normal
-[29, 33, 17]  // Dupla altura
-[29, 33, 32]  // Dupla largura
-[29, 33, 51]  // Dupla altura e largura
-
-// Estilo
-[27, 69, 1]  // Negrito ON
-[27, 69, 0]  // Negrito OFF
-[27, 45, 1]  // Sublinhado ON
-[27, 45, 0]  // Sublinhado OFF
+// Texto centralizado
+byte[] center = { 0x1B, 0x61, 0x01 };
 
 // Cortar papel
-[29, 86, 0]  // Corte total
-[29, 86, 1]  // Corte parcial
+byte[] cut = { 0x1B, 0x69 };
 
-// Quebra de linha
-[10]  // Line feed
+// Exemplo completo
+byte[] receipt = {
+    0x1B, 0x40,           // Inicializar
+    0x1B, 0x61, 0x01,     // Centralizar
+    0x48, 0x65, 0x6C, 0x6C, 0x6F,  // "Hello"
+    0x0A, 0x0A, 0x0A,     // 3 quebras de linha
+    0x1B, 0x69            // Cortar papel
+};
 ```
 
-## 🛠️ Estrutura do Projeto
+## 🔒 Segurança
+
+⚠️ **IMPORTANTE**: Esta API foi desenvolvida para uso local. Não exponha publicamente sem implementar:
+
+- Autenticação/Autorização
+- Rate limiting
+- Validação rigorosa de entrada
+- HTTPS
+
+## 🛠️ Desenvolvimento
+
+### Estrutura do Projeto
 
 ```
 escpos-printer-api/
-├── src/
-│   ├── controllers/
-│   │   └── printer.controller.js    # Lógica dos endpoints
-│   ├── routes/
-│   │   └── printer.routes.js        # Definição das rotas
-│   ├── services/
-│   │   └── printer.service.js       # Serviço de impressão
-│   └── server.js                     # Servidor Express
-├── package.json
-└── README.md
+├── EscPosPrinterApi.sln
+├── EscPosPrinterApi.Core/
+│   ├── Models/
+│   │   ├── PrintRequest.cs
+│   │   ├── PrintResponse.cs
+│   │   └── PrinterInfo.cs
+│   └── Services/
+│       ├── IPrinterService.cs
+│       └── PrinterService.cs
+├── EscPosPrinterApi.Api/
+│   ├── Program.cs
+│   └── appsettings.json
+└── EscPosPrinterApi.UI/
+    ├── Program.cs
+    ├── PrinterSelectionForm.cs
+    └── PrinterSelectionForm.Designer.cs
 ```
 
-## ⚠️ Troubleshooting
+### Tecnologias Utilizadas
 
-### Erro: "No USB printers found"
-- Verifique se a impressora está conectada via USB
-- Verifique se os drivers estão instalados corretamente
-- No Windows, use Zadig para instalar WinUSB driver
-
-### Erro: "LIBUSB_ERROR_NOT_SUPPORTED"
-- No Windows, instale o driver WinUSB usando Zadig
-- No Linux, pode ser necessário adicionar regras udev
-
-### Erro: "Permission denied"
-- No Linux, adicione seu usuário ao grupo `lp`:
-  ```bash
-  sudo usermod -a -G lp $USER
-  ```
+- **.NET 10.0**: Framework principal
+- **ASP.NET Core Minimal API**: API HTTP
+- **Windows Forms**: Interface gráfica
+- **Windows API (winspool.drv)**: Comunicação com impressoras
 
 ## 📝 Licença
 
-MIT
+Este projeto é de código aberto e está disponível sob a licença MIT.
 
 ## 🤝 Contribuindo
 
 Contribuições são bem-vindas! Sinta-se à vontade para abrir issues ou pull requests.
-# escpos-printer-api
+
+## 📞 Suporte
+
+Para problemas ou dúvidas, abra uma issue no repositório.
