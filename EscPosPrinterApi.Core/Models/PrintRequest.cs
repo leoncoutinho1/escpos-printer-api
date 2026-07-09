@@ -24,4 +24,9 @@ public class PrintRequest
     /// Se true, usa a impressora padrão do sistema sem exibir o modal de seleção
     /// </summary>
     public bool DefaultPrinter { get; set; } = false;
+
+    /// <summary>
+    /// Nome da impressora para impressão direta (opcional)
+    /// </summary>
+    public string? PrinterName { get; set; }
 }
